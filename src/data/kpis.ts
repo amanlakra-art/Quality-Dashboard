@@ -37,27 +37,27 @@ export function deriveLegalStatus(pct: number): { status: KPIStatus; color: KPI[
   return { status: 'critical', color: 'red' };
 }
 
-// GMP: Mosaic Overall CM site Score -> GMP column = 0.6875 = 68.75%
-// Legal: composite from FSSAI Summary = 94% (display value)
-const GMP_VALUE = 68.75;
-const LEGAL_VALUE = 94;
+// Legal KPI — no headline value, status driven by relabeller compliance (78.6%)
+const LEGAL_RELABELLER_PCT = 78.57; // 11/14
+const legalDerived = deriveLegalStatus(LEGAL_RELABELLER_PCT);
 
+// GMP: Mosaic Overall CM site Score -> GMP column = 0.6875 = 68.75%
+const GMP_VALUE = 68.75;
 const gmpDerived = deriveGMPStatus(GMP_VALUE);
-const legalDerived = deriveLegalStatus(LEGAL_VALUE);
 
 export const DEFAULT_KPIS: KPI[] = [
   {
     id: 'legal_regulatory',
     title: 'Legal & Regulatory Compliance',
-    value: LEGAL_VALUE,
+    value: 0,              // not displayed — legalMode card uses subMetrics instead
     unit: '%',
-    subtext: 'of regulatory requirements met',
-    target: 98,
-    targetLabel: '>=98%',
+    subtext: 'FSSAI licensing & product endorsement',
+    target: 90,
+    targetLabel: '≥90%',
     status: legalDerived.status,
     color: legalDerived.color,
     description: 'FSSAI licensing: 11/14 relabellers in current licence (78.6%). 32/110 products endorsed in Mosaic licence (29.1%). 78 products pending.',
-    source: 'FSSAI_3PL_Manufacture.xlsx -> Summary',
+    source: 'FSSAI_3PL_Manufacture.xlsx → Summary',
     lastUpdated: new Date().toISOString(),
   },
   {

@@ -91,11 +91,25 @@ export default function Dashboard() {
 
   const getLegalSubMetrics = (fssaiData: FSSAISummary | null) => {
     if (!fssaiData) return [];
-    const relPct = (fssaiData.relabellerLicCompliance * 100).toFixed(1);
-    const prodPct = (fssaiData.productCompliance * 100).toFixed(1);
+    const relPct  = fssaiData.relabellerLicCompliance * 100;
+    const prodPct = fssaiData.productCompliance * 100;
     return [
-      { label: 'Relabeller Lic. Compliance', value: `${relPct}%`, color: parseFloat(relPct) >= 75 ? '#00D97E' : '#F59E0B' },
-      { label: 'Product Compliance', value: `${prodPct}%`, color: parseFloat(prodPct) >= 50 ? '#F59E0B' : '#EF4444' },
+      {
+        label: 'Relabeller Lic. Compliance',
+        value: `${relPct.toFixed(1)}%`,
+        numericValue: relPct,
+        target: 90,
+        color: relPct >= 90 ? '#00D97E' : relPct >= 75 ? '#4ADE80' : '#F59E0B',
+        note: `${fssaiData.relabellerInCurrentLic} of ${fssaiData.totalMfgSites} manufacturers in Mosaic licence`,
+      },
+      {
+        label: 'Product Compliance in Relabeller',
+        value: `${prodPct.toFixed(1)}%`,
+        numericValue: prodPct,
+        target: 75,
+        color: prodPct >= 75 ? '#00D97E' : prodPct >= 50 ? '#F59E0B' : '#EF4444',
+        note: `${fssaiData.totalProductInCurrentLic} of ${fssaiData.totalProducts} products endorsed · ${fssaiData.pending} pending`,
+      },
     ];
   };
 
@@ -265,6 +279,7 @@ export default function Dashboard() {
                   index={i}
                   isDark={isDark}
                   hideEdit={kpi.id === 'legal_regulatory'}
+                  legalMode={kpi.id === 'legal_regulatory'}
                   onEdit={() => setEditModal({ kpi })}
                   onDrillDown={() => setActivePanel(prev => prev === panelFor(kpi) ? null : panelFor(kpi))}
                   subMetrics={kpi.id === 'legal_regulatory' ? getLegalSubMetrics(fssai) : undefined}

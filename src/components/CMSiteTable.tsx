@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CMSite, getSiteColor } from '@/data/cmSites';
 
 interface Props {
+  isDark: boolean;
   sites: CMSite[];
   onUpdate: (name: string, field: keyof CMSite, value: number | null) => void;
 }
@@ -17,7 +18,11 @@ const FIELDS: { key: EditableField; label: string }[] = [
   { key: 'infrastructure', label: 'Infrastructure' },
 ];
 
-function ScoreCell({ value, onSave }: { value: number | null; onSave: (v: number | null) => void }) {
+function ScoreCell({ value, onSave, isDark }: {
+  value: number | null;
+  onSave: (v: number | null) => void;
+  isDark: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value?.toString() ?? '');
   const color = value !== null ? getSiteColor((value / 5) * 100) : '#6B7280';
@@ -42,7 +47,11 @@ function ScoreCell({ value, onSave }: { value: number | null; onSave: (v: number
           if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false); }
         }}
         className="w-14 text-center text-xs font-mono rounded px-1 py-0.5 outline-none"
-        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }}
+        style={{
+          background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+          border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)'}`,
+          color: isDark ? '#E8EAF0' : '#0F1117',
+        }}
       />
     );
   }
@@ -53,44 +62,61 @@ function ScoreCell({ value, onSave }: { value: number | null; onSave: (v: number
       className="group/cell relative w-14 text-center text-xs font-mono rounded px-2 py-1 transition-all duration-150 hover:ring-1"
       style={{
         color: value !== null ? color : '#6B7280',
-        background: value !== null ? color + '15' : 'rgba(255,255,255,0.03)',
-        border: `1px solid ${value !== null ? color + '30' : 'rgba(255,255,255,0.06)'}`,
+        background: value !== null ? color + '15' : isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+        border: `1px solid ${value !== null ? color + '30' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}`,
       }}
       title="Click to edit"
     >
       {value !== null ? value : '—'}
-      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white/20 opacity-0 group-hover/cell:opacity-100 transition-opacity" />
+      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full opacity-0 group-hover/cell:opacity-100 transition-opacity"
+        style={{ background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
     </button>
   );
 }
 
 function colorRuleLabel(pct: number | null) {
   if (pct === null) return { label: 'N/A', color: '#6B7280' };
-  if (pct >= 75) return { label: '●  Dark Green', color: '#00D97E' };
-  if (pct >= 60) return { label: '●  Light Green', color: '#4ADE80' };
-  if (pct >= 50) return { label: '●  Amber', color: '#F59E0B' };
-  return { label: '●  Red', color: '#EF4444' };
+  if (pct >= 75) return { label: '● Dark Green',  color: '#00D97E' };
+  if (pct >= 60) return { label: '● Light Green', color: '#4ADE80' };
+  if (pct >= 50) return { label: '● Amber',       color: '#F59E0B' };
+  return           { label: '● Red',              color: '#EF4444' };
 }
 
-export default function CMSiteTable({ sites, onUpdate }: Props) {
+export default function CMSiteTable({ isDark, sites, onUpdate }: Props) {
   const overallGMP = sites
     .filter(s => s.gmpCompliance !== null)
     .reduce((sum, s, _, arr) => sum + (s.gmpCompliance! / arr.length), 0);
   const overallPct = (overallGMP / 5) * 100;
 
+  // Theme tokens
+  const panelBg     = isDark ? 'linear-gradient(135deg, #1A1F2E, #141720)' : 'linear-gradient(135deg, #FFFFFF, #F8F9FC)';
+  const borderCol   = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+  const dividerCol  = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+  const rowHover    = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)';
+  const rowDivider  = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)';
+  const overallBg   = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+  const overallBord = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)';
+  const hdrText     = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.35)';
+  const cellText    = isDark ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.70)';
+  const mutedText   = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.32)';
+  const faintText   = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.22)';
+  const footerText  = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.25)';
+
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #1A1F2E, #141720)', border: '1px solid rgba(255,255,255,0.07)' }}
-    >
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background: panelBg, border: `1px solid ${borderCol}` }}>
+
       {/* Color legend */}
-      <div className="px-5 pt-5 pb-3 border-b border-white/[0.05] flex items-center gap-6 flex-wrap">
-        <span className="text-[10px] font-mono text-white/25 tracking-widest uppercase">Scoring Rules (out of 5)</span>
+      <div className="px-5 pt-5 pb-3 flex items-center gap-6 flex-wrap"
+        style={{ borderBottom: `1px solid ${dividerCol}` }}>
+        <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: hdrText }}>
+          Scoring Rules (out of 5)
+        </span>
         {[
-          { label: '≥75%  Dark Green',  color: '#00D97E' },
+          { label: '≥75%  Dark Green',   color: '#00D97E' },
           { label: '60–74%  Light Green', color: '#4ADE80' },
-          { label: '50–59%  Amber',    color: '#F59E0B' },
-          { label: '<50%  Red',         color: '#EF4444' },
+          { label: '50–59%  Amber',      color: '#F59E0B' },
+          { label: '<50%  Red',          color: '#EF4444' },
         ].map(r => (
           <span key={r.label} className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: r.color + 'cc' }}>
             <span className="w-2 h-2 rounded-sm" style={{ background: r.color }} />
@@ -103,40 +129,46 @@ export default function CMSiteTable({ sites, onUpdate }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <th className="text-left px-5 py-3 font-mono text-white/30 tracking-wider font-normal uppercase text-[10px]">CM Site</th>
+            <tr style={{ borderBottom: `1px solid ${dividerCol}` }}>
+              <th className="text-left px-5 py-3 font-mono tracking-wider font-normal uppercase text-[10px]"
+                style={{ color: hdrText }}>CM Site</th>
               {FIELDS.map(f => (
-                <th key={f.key} className="text-center px-3 py-3 font-mono text-white/30 tracking-wider font-normal uppercase text-[10px]">
-                  {f.label}
-                </th>
+                <th key={f.key} className="text-center px-3 py-3 font-mono tracking-wider font-normal uppercase text-[10px]"
+                  style={{ color: hdrText }}>{f.label}</th>
               ))}
-              <th className="text-center px-3 py-3 font-mono text-white/30 tracking-wider font-normal uppercase text-[10px]">AVG</th>
-              <th className="text-center px-3 py-3 font-mono text-white/30 tracking-wider font-normal uppercase text-[10px]">Score</th>
-              <th className="text-center px-4 py-3 font-mono text-white/30 tracking-wider font-normal uppercase text-[10px]">Rating</th>
+              <th className="text-center px-3 py-3 font-mono tracking-wider font-normal uppercase text-[10px]"
+                style={{ color: hdrText }}>AVG</th>
+              <th className="text-center px-3 py-3 font-mono tracking-wider font-normal uppercase text-[10px]"
+                style={{ color: hdrText }}>Score</th>
+              <th className="text-center px-4 py-3 font-mono tracking-wider font-normal uppercase text-[10px]"
+                style={{ color: hdrText }}>Rating</th>
             </tr>
           </thead>
           <tbody>
             {sites.map((site, i) => {
               const rule = colorRuleLabel(site.pct);
               return (
-                <tr
-                  key={site.name}
-                  className="transition-colors duration-150 hover:bg-white/[0.02]"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', animationDelay: `${i * 0.05}s` }}
+                <tr key={site.name}
+                  className="transition-colors duration-150"
+                  style={{ borderBottom: `1px solid ${rowDivider}` }}
+                  onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <td className="px-5 py-3 text-white/70 font-medium">{site.name}</td>
+                  <td className="px-5 py-3 font-medium" style={{ color: cellText }}>{site.name}</td>
                   {FIELDS.map(f => (
                     <td key={f.key} className="px-3 py-3 text-center">
                       <ScoreCell
                         value={site[f.key] as number | null}
                         onSave={v => onUpdate(site.name, f.key, v)}
+                        isDark={isDark}
                       />
                     </td>
                   ))}
-                  <td className="px-3 py-3 text-center font-mono text-white/50">
+                  <td className="px-3 py-3 text-center font-mono" style={{ color: mutedText }}>
                     {site.avg?.toFixed(3) ?? '—'}
                   </td>
-                  <td className="px-3 py-3 text-center font-mono font-medium" style={{ color: getSiteColor(site.pct) }}>
+                  <td className="px-3 py-3 text-center font-mono font-medium"
+                    style={{ color: getSiteColor(site.pct) }}>
                     {site.pct !== null ? `${site.pct.toFixed(1)}%` : '—'}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -146,19 +178,45 @@ export default function CMSiteTable({ sites, onUpdate }: Props) {
               );
             })}
 
-            {/* Overall row */}
-            <tr style={{ background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <td className="px-5 py-3 text-white/50 font-mono text-[10px] tracking-wider uppercase">Mosaic Overall</td>
-              {FIELDS.map(f => (
-                <td key={f.key} className="px-3 py-3 text-center font-mono text-white/30 text-[10px]">—</td>
-              ))}
-              <td className="px-3 py-3 text-center font-mono text-white/30 text-[10px]">—</td>
-              <td className="px-3 py-3 text-center font-mono font-bold text-[13px]" style={{ color: getSiteColor(overallPct) }}>
-                {overallPct.toFixed(2)}%
+            {/* Mosaic Overall row — exact values from Summary tab */}
+            <tr style={{ background: overallBg, borderTop: `2px solid ${overallBord}` }}>
+              <td className="px-5 py-3 font-mono text-[10px] tracking-wider uppercase font-semibold"
+                style={{ color: cellText }}>
+                Mosaic Overall
+                <div className="text-[9px] font-normal mt-0.5 normal-case tracking-normal" style={{ color: faintText }}>
+                  From Summary tab
+                </div>
+              </td>
+              {/* Site Readiness: 0.6429 → 64.3% */}
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[11px] font-bold" style={{ color: getSiteColor(64.3) }}>64.3%</span>
+                <div className="text-[9px] font-mono" style={{ color: faintText }}>3.21 / 5</div>
+              </td>
+              {/* GMP: 0.6875 → 68.75% */}
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[11px] font-bold" style={{ color: getSiteColor(68.75) }}>68.75%</span>
+                <div className="text-[9px] font-mono" style={{ color: faintText }}>3.44 / 5</div>
+              </td>
+              {/* QMS: 0.6375 → 63.75% */}
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[11px] font-bold" style={{ color: getSiteColor(63.75) }}>63.75%</span>
+                <div className="text-[9px] font-mono" style={{ color: faintText }}>3.19 / 5</div>
+              </td>
+              {/* Infrastructure: 0.675 → 67.5% */}
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[11px] font-bold" style={{ color: getSiteColor(67.5) }}>67.5%</span>
+                <div className="text-[9px] font-mono" style={{ color: faintText }}>3.38 / 5</div>
+              </td>
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[11px] font-bold" style={{ color: mutedText }}>3.313</span>
+              </td>
+              <td className="px-3 py-3 text-center">
+                <span className="font-mono text-[13px] font-bold" style={{ color: getSiteColor(66.25) }}>66.25%</span>
               </td>
               <td className="px-4 py-3 text-center">
-                <span className="text-[10px] font-mono font-medium" style={{ color: colorRuleLabel(overallPct).color }}>
-                  {colorRuleLabel(overallPct).label}
+                <span className="text-[10px] font-mono font-semibold"
+                  style={{ color: colorRuleLabel(66.25).color }}>
+                  {colorRuleLabel(66.25).label}
                 </span>
               </td>
             </tr>
@@ -166,7 +224,7 @@ export default function CMSiteTable({ sites, onUpdate }: Props) {
         </table>
       </div>
 
-      <p className="px-5 py-3 text-[10px] text-white/20 font-mono border-t border-white/[0.04]">
+      <p className="px-5 py-3 text-[10px] font-mono" style={{ color: footerText, borderTop: `1px solid ${dividerCol}` }}>
         Click any score cell to edit · Changes sync to GMP Compliance KPI automatically
       </p>
     </div>

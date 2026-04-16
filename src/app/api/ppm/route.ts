@@ -5,13 +5,13 @@ let ppmStore: PPMData = JSON.parse(JSON.stringify(PPM_DATA));
 let settingsStore: PPMSettings = JSON.parse(JSON.stringify(DEFAULT_PPM_SETTINGS));
 
 export async function GET() {
-  const weightedPPM = computeWeightedPPM(ppmStore, settingsStore);
-  const derived = derivePPMStatus(weightedPPM, settingsStore);
+  const rawPPM = ppmStore.overallPPM;
+  const derived = derivePPMStatus(rawPPM, settingsStore);
   return NextResponse.json({
     data: ppmStore,
     settings: settingsStore,
-    weightedPPM,
-    rawPPM: ppmStore.overallPPM,
+    weightedPPM: rawPPM,
+    rawPPM,
     ...derived,
   });
 }
@@ -31,9 +31,9 @@ export async function PATCH(req: NextRequest) {
       ppmStore = { ...ppmStore, ...(payload as Partial<PPMData>) };
     }
 
-    const weightedPPM = computeWeightedPPM(ppmStore, settingsStore);
-    const derived = derivePPMStatus(weightedPPM, settingsStore);
-    return NextResponse.json({ data: ppmStore, settings: settingsStore, weightedPPM, ...derived });
+    const rawPPM = ppmStore.overallPPM;
+    const derived = derivePPMStatus(rawPPM, settingsStore);
+    return NextResponse.json({ data: ppmStore, settings: settingsStore, weightedPPM: rawPPM, ...derived });
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }

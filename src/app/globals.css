@@ -4,44 +4,92 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark theme (default) ── */
 :root {
   --font-display: 'Syne', sans-serif;
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
 
-  --surface: #0E1117;
+  --surface:   #0E1117;
   --surface-1: #141720;
   --surface-2: #1A1F2E;
   --surface-3: #222840;
 
-  --green: #00D97E;
-  --amber: #F59E0B;
-  --red: #EF4444;
-  --blue: #3B82F6;
+  --text-primary:   #E8EAF0;
+  --text-secondary: rgba(255,255,255,0.5);
+  --text-muted:     rgba(255,255,255,0.28);
+  --text-faint:     rgba(255,255,255,0.18);
 
-  --border: rgba(255,255,255,0.07);
+  --border:       rgba(255,255,255,0.07);
   --border-hover: rgba(255,255,255,0.14);
+
+  --card-bg:      linear-gradient(135deg, #1A1F2E 0%, #141720 100%);
+  --card-border:  rgba(255,255,255,0.07);
+  --table-hover:  rgba(255,255,255,0.02);
+  --subchip-bg:   rgba(255,255,255,0.03);
+  --subchip-border: rgba(255,255,255,0.06);
+  --panel-bg:     linear-gradient(135deg, #1A1F2E, #141720);
+  --input-bg:     rgba(255,255,255,0.08);
+  --toggle-off:   rgba(255,255,255,0.10);
+  --footer-border: rgba(255,255,255,0.04);
+
+  --grid-line:    rgba(255,255,255,0.025);
+  --scrollbar:    rgba(255,255,255,0.1);
+  --shimmer-a:    rgba(255,255,255,0.04);
+  --shimmer-b:    rgba(255,255,255,0.10);
+}
+
+/* ── Light theme ── */
+[data-theme='light'] {
+  --surface:   #F5F6FA;
+  --surface-1: #FFFFFF;
+  --surface-2: #EEF0F7;
+  --surface-3: #E4E7F2;
+
+  --text-primary:   #0F1117;
+  --text-secondary: rgba(0,0,0,0.55);
+  --text-muted:     rgba(0,0,0,0.38);
+  --text-faint:     rgba(0,0,0,0.22);
+
+  --border:       rgba(0,0,0,0.08);
+  --border-hover: rgba(0,0,0,0.16);
+
+  --card-bg:      linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
+  --card-border:  rgba(0,0,0,0.08);
+  --table-hover:  rgba(0,0,0,0.02);
+  --subchip-bg:   rgba(0,0,0,0.03);
+  --subchip-border: rgba(0,0,0,0.07);
+  --panel-bg:     linear-gradient(135deg, #FFFFFF, #F8F9FC);
+  --input-bg:     rgba(0,0,0,0.05);
+  --toggle-off:   rgba(0,0,0,0.12);
+  --footer-border: rgba(0,0,0,0.06);
+
+  --grid-line:    rgba(0,0,0,0.04);
+  --scrollbar:    rgba(0,0,0,0.12);
+  --shimmer-a:    rgba(0,0,0,0.03);
+  --shimmer-b:    rgba(0,0,0,0.07);
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   background: var(--surface);
-  color: #E8EAF0;
+  color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
 /* ── Animated grid background ── */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -59,7 +107,7 @@ html, body {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.fade-up { animation: fadeUp 0.5s ease forwards; }
+.fade-up  { animation: fadeUp 0.5s ease forwards; }
 .fade-up-1 { animation: fadeUp 0.5s 0.1s ease both; }
 .fade-up-2 { animation: fadeUp 0.5s 0.2s ease both; }
 .fade-up-3 { animation: fadeUp 0.5s 0.3s ease both; }
@@ -68,19 +116,19 @@ html, body {
 /* ── Glow pulse ── */
 @keyframes glowPulse {
   0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  50%       { opacity: 1; }
 }
 
 /* ── Shimmer loading ── */
 @keyframes shimmer {
   from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
+  to   { background-position:  200% 0; }
 }
 .shimmer {
   background: linear-gradient(90deg,
-    rgba(255,255,255,0.04) 0%,
-    rgba(255,255,255,0.1) 50%,
-    rgba(255,255,255,0.04) 100%
+    var(--shimmer-a) 0%,
+    var(--shimmer-b) 50%,
+    var(--shimmer-a) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -91,24 +139,14 @@ input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 input[type=number] { -moz-appearance: textfield; }
 
-/* ── Tooltip ── */
-.tooltip { position: relative; }
-.tooltip-text {
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 0.2s;
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1A1F2E;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  white-space: nowrap;
-  font-size: 11px;
-  color: rgba(255,255,255,0.7);
-  pointer-events: none;
-  z-index: 10;
+/* ── Theme transition for all elements ── */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
 }
-.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+/* But don't slow down transforms / opacity animations ── */
+.fade-up, .fade-up-1, .fade-up-2, .fade-up-3, .fade-up-4,
+.progress-fill, .shimmer {
+  transition-property: none;
+}

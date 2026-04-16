@@ -106,6 +106,9 @@ export const PPM_DATA: PPMData = {
 };
 
 export function computeWeightedPPM(data: PPMData, settings: PPMSettings): number {
+  // Standard PPM formula: (total complaints / total sales) * 1,000,000
+  // Filters (exclude delivery / critical only) reduce the complaint count
+  // but weights are NOT applied — 1 complaint = 1 complaint regardless of type
   let filteredIssues = [...data.byIssueType];
 
   if (settings.excludeDelivery) {
@@ -117,13 +120,8 @@ export function computeWeightedPPM(data: PPMData, settings: PPMSettings): number
     );
   }
 
-  const totalSales = data.totalSales;
-  const weightedComplaints = filteredIssues.reduce((sum, issue) => {
-    const weight = settings.issueWeights[issue.type as keyof typeof settings.issueWeights] ?? 1.0;
-    return sum + (issue.complaints * weight);
-  }, 0);
-
-  return Math.round((weightedComplaints / totalSales) * 1_000_000 * 10) / 10;
+  const totalComplaints = filteredIssues.reduce((sum, issue) => sum + issue.complaints, 0);
+  return Math.round((totalComplaints / data.totalSales) * 1_000_000 * 10) / 10;
 }
 
 export function derivePPMStatus(ppm: number, settings: PPMSettings): { status: string; color: 'green' | 'light_green' | 'amber' | 'red' } {

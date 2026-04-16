@@ -70,17 +70,20 @@ export default function Dashboard() {
       fetch('/api/fssai').then(r => r.json()),
       fetch('/api/ppm').then(r => r.json()),
     ]);
-    setKpis(kpiRes.kpis);
+
+    // Set all KPIs from the KPI store — this is the single source of truth for displayed values
+    // Then patch the PPM card with the live computed value from the PPM API
+    const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
+      k.id === 'complaints_ppm'
+        ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
+        : k
+    );
+    setKpis(kpisWithPPM);
     setSites(siteRes.sites);
     setFssai(fssaiRes.summary);
     setPpmData(ppmRes.data);
     setPpmSettings(ppmRes.settings);
     setWeightedPPM(ppmRes.weightedPPM);
-    setKpis(prev => prev.length ? prev.map(k =>
-      k.id === 'complaints_ppm'
-        ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
-        : k
-    ) : kpiRes.kpis);
     setLoading(false);
   }, []);
 
@@ -131,6 +134,9 @@ export default function Dashboard() {
   };
 
   const handleFSSAIUpdate = async (updates: Partial<FSSAISummary>) => {
+    // FSSAI panel updates only update the breakdown data (relabellers, products etc.)
+    // They do NOT auto-overwrite the Legal & Regulatory KPI value.
+    // The Legal KPI value is independently set via the Edit button on the card.
     setSaving(true);
     const res = await fetch('/api/fssai', {
       method: 'PATCH',
@@ -139,13 +145,8 @@ export default function Dashboard() {
     });
     const data = await res.json();
     setFssai(data.summary);
-    if (data.legalScore !== undefined) {
-      setKpis(prev => prev.map(k =>
-        k.id === 'legal_regulatory'
-          ? { ...k, value: data.legalScore, status: data.status, color: data.color }
-          : k
-      ));
-    }
+    // Sub-metrics (78.6% / 29.1%) will auto-update via getLegalSubMetrics(fssai)
+    // Legal KPI headline value is NOT touched here
     setSaving(false);
     setLastSaved(new Date().toLocaleTimeString());
   };

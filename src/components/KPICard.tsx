@@ -13,13 +13,14 @@ interface Props {
   kpi: KPI;
   index: number;
   isDark: boolean;
+  hideEdit?: boolean;
   onEdit: () => void;
   onDrillDown: () => void;
   subMetrics?: SubMetric[];
   ppmOverride?: { value: number; target: number };
 }
 
-export default function KPICard({ kpi, index, isDark, onEdit, onDrillDown, subMetrics, ppmOverride }: Props) {
+export default function KPICard({ kpi, index, isDark, hideEdit, onEdit, onDrillDown, subMetrics, ppmOverride }: Props) {
   const [animated, setAnimated] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -164,11 +165,13 @@ export default function KPICard({ kpi, index, isDark, onEdit, onDrillDown, subMe
             onMouseLeave={e => (e.currentTarget.style.background = color + '12')}>
             Drill down ↗
           </button>
-          <button onClick={onEdit}
-            className="text-[11px] font-mono px-2.5 py-1 rounded-lg transition-all duration-200 active:scale-95"
-            style={editBtnStyle}>
-            Edit
-          </button>
+          {!hideEdit && (
+            <button onClick={onEdit}
+              className="text-[11px] font-mono px-2.5 py-1 rounded-lg transition-all duration-200 active:scale-95"
+              style={editBtnStyle}>
+              Edit
+            </button>
+          )}
         </div>
       </div>
     </div>

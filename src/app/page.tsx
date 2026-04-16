@@ -264,6 +264,7 @@ export default function Dashboard() {
                   kpi={kpi}
                   index={i}
                   isDark={isDark}
+                  hideEdit={kpi.id === 'legal_regulatory'}
                   onEdit={() => setEditModal({ kpi })}
                   onDrillDown={() => setActivePanel(prev => prev === panelFor(kpi) ? null : panelFor(kpi))}
                   subMetrics={kpi.id === 'legal_regulatory' ? getLegalSubMetrics(fssai) : undefined}

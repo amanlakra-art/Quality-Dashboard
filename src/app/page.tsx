@@ -62,11 +62,13 @@ export default function Dashboard() {
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   const t = {
-    border: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)',
+    border: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.10)',
     textPrimary: isDark ? '#E8EAF0' : '#0F1117',
-    textSecondary: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
-    textMuted: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)',
-    textFaint: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.2)',
+    // Light-mode opacities bumped up — the previous 0.3/0.2 values were
+    // unreadable against the near-white surface.
+    textSecondary: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.65)',
+    textMuted: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.50)',
+    textFaint: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.40)',
     divider: isDark
       ? 'linear-gradient(90deg, rgba(0,217,126,0.15), rgba(255,255,255,0.05) 40%, transparent)'
       : 'linear-gradient(90deg, rgba(0,217,126,0.3), rgba(0,0,0,0.06) 40%, transparent)',
@@ -89,12 +91,40 @@ export default function Dashboard() {
       if (fssaiRes.error) errors.push(`FSSAI: ${fssaiRes.error}`);
       setLoadError(errors.length ? errors.join(' · ') : null);
 
-      const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
-        k.id === 'complaints_ppm'
-          ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
-          : k
-      );
-      setKpis(kpisWithPPM);
+      // Patch live values into the KPI store:
+      //   - Complaints PPM: from the PPM API
+      //   - GMP Compliance: from the CM Sites API (column-averages.scorePct
+      //     in the sheet — the same number the user sees in the source).
+      // Other KPIs keep their kpis.ts values until they too get a live source.
+      const liveGmpPct: number | undefined =
+        typeof siteRes.overallGMPPct === 'number' ? siteRes.overallGMPPct : undefined;
+
+      const kpisLive = (kpiRes.kpis as KPI[]).map(k => {
+        if (k.id === 'complaints_ppm') {
+          return { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color };
+        }
+        if (k.id === 'gmp_compliance' && liveGmpPct !== undefined) {
+          // Mirror the threshold logic from kpis.ts → deriveGMPStatus.
+          const status =
+            liveGmpPct >= 75 ? 'on_track'
+            : liveGmpPct >= 60 ? 'good'
+            : liveGmpPct >= 50 ? 'near_target'
+            : 'critical';
+          const color =
+            liveGmpPct >= 75 ? 'green'
+            : liveGmpPct >= 60 ? 'light_green'
+            : liveGmpPct >= 50 ? 'amber'
+            : 'red';
+          return {
+            ...k,
+            value: Math.round(liveGmpPct * 100) / 100,
+            status,
+            color,
+          };
+        }
+        return k;
+      });
+      setKpis(kpisLive);
 
       if (Array.isArray(siteRes.sites)) setSites(siteRes.sites);
       if (siteRes.mosaicOverall) setMosaicOverall(siteRes.mosaicOverall);

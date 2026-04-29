@@ -29,9 +29,9 @@ function StatBlock({
   isDark: boolean; accent?: string;
 }) {
   const bg   = isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.03)';
-  const bord = isDark ? 'rgba(255,255,255,0.06)'  : 'rgba(0,0,0,0.07)';
-  const lbl  = isDark ? 'rgba(255,255,255,0.30)'  : 'rgba(0,0,0,0.35)';
-  const note = isDark ? 'rgba(255,255,255,0.30)'  : 'rgba(0,0,0,0.32)';
+  const bord = isDark ? 'rgba(255,255,255,0.06)'  : 'rgba(0,0,0,0.10)';
+  const lbl  = isDark ? 'rgba(255,255,255,0.30)'  : 'rgba(0,0,0,0.55)';
+  const note = isDark ? 'rgba(255,255,255,0.30)'  : 'rgba(0,0,0,0.55)';
   const txt  = accent || (isDark ? '#E8EAF0' : '#0F1117');
 
   return (
@@ -69,16 +69,17 @@ export default function FSSAIPanel({ isDark, data, bySoi, totals, fetchedAt }: P
   const relative = useRelative(fetchedAt);
 
   const panelBg   = isDark ? 'linear-gradient(135deg, #1A1F2E, #141720)' : 'linear-gradient(135deg, #FFFFFF, #F8F9FC)';
-  const borderCol = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
-  const divider   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-  const secLbl    = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.35)';
-  const faint     = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.30)';
-  const veryFaint = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.22)';
-  const cellText  = isDark ? 'rgba(255,255,255,0.78)' : 'rgba(0,0,0,0.78)';
-  const barTrack  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const totalsBg  = isDark ? 'rgba(245,159,11,0.06)'  : 'rgba(245,159,11,0.10)';
-  const totalsBd  = isDark ? 'rgba(245,159,11,0.20)'  : 'rgba(245,159,11,0.28)';
-  const footerTxt = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.40)';
+  const borderCol = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.10)';
+  const divider   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+  // Light-mode opacities raised — was 0.22-0.40 against near-white = invisible.
+  const secLbl    = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.55)';
+  const faint     = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.55)';
+  const veryFaint = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.50)';
+  const cellText  = isDark ? 'rgba(255,255,255,0.78)' : 'rgba(0,0,0,0.82)';
+  const barTrack  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+  const totalsBg  = isDark ? 'rgba(245,159,11,0.06)'  : 'rgba(245,159,11,0.12)';
+  const totalsBd  = isDark ? 'rgba(245,159,11,0.20)'  : 'rgba(245,159,11,0.30)';
+  const footerTxt = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.55)';
 
   const relCol  = relPct  >= 75 ? '#00D97E' : relPct  >= 50 ? '#F59E0B' : '#EF4444';
   const prodCol = prodPct >= 75 ? '#00D97E' : prodPct >= 50 ? '#F59E0B' : '#EF4444';

@@ -1,16 +1,16 @@
 // src/app/api/cm-sites/route.ts
 //
-// Replaces the previous version that held data in `let siteStore = []` at
-// module scope (which loses writes on Vercel cold starts and never wrote
-// to anything persistent anyway).
+// Read-only, sourced from Google Sheets via Apps Script. PATCH was removed
+// when we moved the source of truth to the sheet.
 //
-// New behavior: read-only, sourced from Google Sheets via Apps Script.
-// PATCH is intentionally removed — sheet is the source of truth, edits
-// happen in the sheet itself.
+// `overallGMPPct` is sourced from the sheet's column-averages row (the row
+// just below the per-site rows in the Summary tab). That row's score-percent
+// cell is the sheet's own composite "overall CM site score". Using this
+// value means the KPI card always matches what quality leaders see in
+// the sheet (e.g. cell G15 = 65.23% in the current data).
 //
-// Backwards-compatible response shape: the existing homepage expects
-// `{ sites, overallGMPPct }`. We keep that and add `meta` + `mosaicOverall`
-// for the polished panel without breaking anything.
+// Fall back to averaging per-site scorePct only if the sheet didn't have
+// that row populated.
 
 import { NextResponse } from 'next/server';
 import { getCmSites, type CmSiteRow } from '@/lib/sheets';
@@ -22,12 +22,8 @@ export async function GET() {
   try {
     const payload = await getCmSites();
 
-    // Map the Apps Script shape to the legacy CMSite shape so the existing
-    // CMSiteTable component and homepage keep working without a rewrite.
-    // Key differences:
-    //   sheet field          → legacy field
-    //   infraResources       → infrastructure
-    //   scorePct             → pct
+    // Map sheet shape → legacy CMSite shape so the existing components
+    // and homepage keep working unchanged.
     const sites: CMSite[] = payload.rows.map((r: CmSiteRow) => ({
       name: r.site,
       siteReadiness: r.siteReadiness,
@@ -38,20 +34,20 @@ export async function GET() {
       pct: r.scorePct,
     }));
 
-    // Compute overallGMPPct from live data. The previous version computed
-    // this from the in-memory store; we do the same, just from the sheet.
-    const validGMP = sites.filter((s) => s.gmpCompliance !== null);
-    const avgGMP =
-      validGMP.length > 0
-        ? validGMP.reduce((acc, s) => acc + (s.gmpCompliance ?? 0), 0) /
-          validGMP.length
-        : 0;
-    const overallGMPPct = (avgGMP / 5) * 100;
+    let overallGMPPct: number | null = payload.columnAverages.scorePct;
+    if (overallGMPPct === null) {
+      const validPct = sites
+        .map((s) => s.pct)
+        .filter((v): v is number => typeof v === 'number');
+      overallGMPPct =
+        validPct.length > 0
+          ? validPct.reduce((a, b) => a + b, 0) / validPct.length
+          : 0;
+    }
 
     return NextResponse.json({
       sites,
       overallGMPPct,
-      // Extras for the polished panel — don't break old consumers.
       mosaicOverall: payload.mosaicOverall,
       columnAverages: payload.columnAverages,
       meta: { fetchedAt: payload.fetchedAt, source: 'google-sheets' },

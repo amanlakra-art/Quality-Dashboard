@@ -83,17 +83,18 @@ export default function CMSiteTable({ isDark, sites, mosaicOverall, fetchedAt }:
 
   // Theme tokens — matching the existing homepage's dark/light system.
   const panelBg    = isDark ? 'linear-gradient(135deg, #1A1F2E, #141720)' : 'linear-gradient(135deg, #FFFFFF, #F8F9FC)';
-  const borderCol  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
-  const dividerCol = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-  const rowHover   = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)';
-  const rowDivider = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)';
-  const overallBg  = isDark ? 'rgba(0,217,126,0.04)'   : 'rgba(0,217,126,0.06)';
-  const overallBd  = isDark ? 'rgba(0,217,126,0.20)'   : 'rgba(0,217,126,0.28)';
-  const hdrText    = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.35)';
-  const cellText   = isDark ? 'rgba(255,255,255,0.78)' : 'rgba(0,0,0,0.78)';
-  const mutedText  = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.32)';
-  const faintText  = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.22)';
-  const footerText = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.40)';
+  const borderCol  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.10)';
+  const dividerCol = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+  const rowHover   = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)';
+  const rowDivider = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)';
+  const overallBg  = isDark ? 'rgba(0,217,126,0.04)'   : 'rgba(0,217,126,0.08)';
+  const overallBd  = isDark ? 'rgba(0,217,126,0.20)'   : 'rgba(0,217,126,0.30)';
+  // Light-mode opacities raised to readable levels (was 0.22-0.40 → washed out).
+  const hdrText    = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.55)';
+  const cellText   = isDark ? 'rgba(255,255,255,0.78)' : 'rgba(0,0,0,0.82)';
+  const mutedText  = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.55)';
+  const faintText  = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.50)';
+  const footerText = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.55)';
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: panelBg, border: `1px solid ${borderCol}` }}>

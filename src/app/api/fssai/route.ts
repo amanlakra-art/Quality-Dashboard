@@ -1,28 +1,64 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { FSSAI_SUMMARY, FSSAISummary } from '@/data/fssaiData';
+// src/app/api/fssai/route.ts
+//
+// Read-only, sourced from the FSSAI Summary sheet via Apps Script.
+// Returns a backwards-compatible `summary` object so the existing homepage
+// (which calls `getLegalSubMetrics(fssai)`) keeps working unchanged.
+// Adds `bySoi` / `totals` with the new "endorsement pending" column from
+// the actual sheet (which the hardcoded data didn't have).
 
-let store: FSSAISummary = JSON.parse(JSON.stringify(FSSAI_SUMMARY));
+import { NextResponse } from 'next/server';
+import { getFssai } from '@/lib/sheets';
+import type { FSSAISummary, SOIRow } from '@/data/fssaiData';
 
-function recompute(s: FSSAISummary): FSSAISummary {
-  return {
-    ...s,
-    relabellerLicCompliance: s.relabellerInCurrentLic / s.totalMfgSites,
-    productCompliance: s.totalProductInCurrentLic / s.totalProducts,
-    pending: s.totalProducts - s.totalProductInCurrentLic,
-  };
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  // Return FSSAI data only — no longer computes or owns the Legal KPI value
-  return NextResponse.json({ summary: store });
-}
-
-export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json() as Partial<FSSAISummary>;
-    store = recompute({ ...store, ...body });
-    return NextResponse.json({ summary: store });
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    const payload = await getFssai();
+    const s = payload.summary;
+
+    // ---- Legacy shape mapping ----
+    // The homepage's getLegalSubMetrics() reads:
+    //   relabellerLicCompliance (0-1 fraction), productCompliance (0-1),
+    //   totalMfgSites, relabellerInCurrentLic, totalProducts,
+    //   totalProductInCurrentLic, pending, soiBreakdown
+    // The Apps Script returns 0-100 percents — we divide by 100 for legacy.
+
+    const legacySoi: SOIRow[] = payload.bySoi.map((r) => ({
+      category: r.soi,
+      total: r.totalProducts ?? 0,
+      awaitedForReview: r.awaitedReview ?? 0,
+      received: r.received ?? 0,
+    }));
+
+    const summary: FSSAISummary = {
+      totalMfgSites: s.totalMfgSite ?? 0,
+      relabellerInCurrentLic: s.relablerInCurrentLicence ?? 0,
+      relabellerLicCompliance:
+        s.relablerCompliancePct !== null ? s.relablerCompliancePct / 100 : 0,
+      totalProducts: s.totalProduct ?? 0,
+      totalProductInCurrentLic: s.totalProductInCurrentLicence ?? 0,
+      pending: s.pending ?? 0,
+      productCompliance:
+        s.productCompliancePct !== null ? s.productCompliancePct / 100 : 0,
+      soiBreakdown: legacySoi,
+    };
+
+    return NextResponse.json({
+      summary,
+      // New rich shape — used by the upgraded FSSAI panel.
+      bySoi: payload.bySoi,
+      totals: payload.totals,
+      meta: { fetchedAt: payload.fetchedAt, source: 'google-sheets' },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json(
+      {
+        error: message,
+        hint: 'Check SHEETS_API_URL / SHEETS_API_TOKEN env vars and that the Apps Script is deployed.',
+      },
+      { status: 500 }
+    );
   }
 }

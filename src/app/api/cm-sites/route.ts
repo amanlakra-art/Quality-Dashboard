@@ -1,39 +1,69 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { CM_SITES, CMSite, MOSAIC_OVERALL } from '@/data/cmSites';
-import { deriveGMPStatus } from '@/data/kpis';
+// src/app/api/cm-sites/route.ts
+//
+// Replaces the previous version that held data in `let siteStore = []` at
+// module scope (which loses writes on Vercel cold starts and never wrote
+// to anything persistent anyway).
+//
+// New behavior: read-only, sourced from Google Sheets via Apps Script.
+// PATCH is intentionally removed — sheet is the source of truth, edits
+// happen in the sheet itself.
+//
+// Backwards-compatible response shape: the existing homepage expects
+// `{ sites, overallGMPPct }`. We keep that and add `meta` + `mosaicOverall`
+// for the polished panel without breaking anything.
 
-let siteStore: CMSite[] = JSON.parse(JSON.stringify(CM_SITES));
+import { NextResponse } from 'next/server';
+import { getCmSites, type CmSiteRow } from '@/lib/sheets';
+import type { CMSite } from '@/data/cmSites';
 
-function recomputeOverall() {
-  const validGMP = siteStore.filter(s => s.gmpCompliance !== null);
-  const avgGMP = validGMP.reduce((s, x) => s + (x.gmpCompliance ?? 0), 0) / validGMP.length;
-  return { rawAvg: avgGMP, pct: (avgGMP / 5) * 100 };
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const overall = recomputeOverall();
-  return NextResponse.json({ sites: siteStore, overallGMPPct: overall.pct });
-}
-
-export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json() as Partial<CMSite> & { name: string };
-    const { name, ...updates } = body;
-    const idx = siteStore.findIndex(s => s.name === name);
-    if (idx === -1) return NextResponse.json({ error: 'Site not found' }, { status: 404 });
+    const payload = await getCmSites();
 
-    siteStore[idx] = { ...siteStore[idx], ...updates };
-    // Recompute avg & pct for this site
-    const s = siteStore[idx];
-    const vals = [s.siteReadiness, s.gmpCompliance, s.qmsCompliance, s.infrastructure].filter(v => v !== null) as number[];
-    if (vals.length > 0) {
-      siteStore[idx].avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      siteStore[idx].pct = (siteStore[idx].avg! / 5) * 100;
-    }
+    // Map the Apps Script shape to the legacy CMSite shape so the existing
+    // CMSiteTable component and homepage keep working without a rewrite.
+    // Key differences:
+    //   sheet field          → legacy field
+    //   infraResources       → infrastructure
+    //   scorePct             → pct
+    const sites: CMSite[] = payload.rows.map((r: CmSiteRow) => ({
+      name: r.site,
+      siteReadiness: r.siteReadiness,
+      gmpCompliance: r.gmpCompliance,
+      qmsCompliance: r.qmsCompliance,
+      infrastructure: r.infraResources,
+      avg: r.avg,
+      pct: r.scorePct,
+    }));
 
-    const overall = recomputeOverall();
-    return NextResponse.json({ site: siteStore[idx], overallGMPPct: overall.pct, ...deriveGMPStatus(overall.pct) });
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    // Compute overallGMPPct from live data. The previous version computed
+    // this from the in-memory store; we do the same, just from the sheet.
+    const validGMP = sites.filter((s) => s.gmpCompliance !== null);
+    const avgGMP =
+      validGMP.length > 0
+        ? validGMP.reduce((acc, s) => acc + (s.gmpCompliance ?? 0), 0) /
+          validGMP.length
+        : 0;
+    const overallGMPPct = (avgGMP / 5) * 100;
+
+    return NextResponse.json({
+      sites,
+      overallGMPPct,
+      // Extras for the polished panel — don't break old consumers.
+      mosaicOverall: payload.mosaicOverall,
+      columnAverages: payload.columnAverages,
+      meta: { fetchedAt: payload.fetchedAt, source: 'google-sheets' },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json(
+      {
+        error: message,
+        hint: 'Check SHEETS_API_URL / SHEETS_API_TOKEN env vars and that the Apps Script is deployed.',
+      },
+      { status: 500 }
+    );
   }
 }

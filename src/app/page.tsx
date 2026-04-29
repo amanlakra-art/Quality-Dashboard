@@ -3,27 +3,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import KPICard from '@/components/KPICard';
 import CMSiteTable from '@/components/CMSiteTable';
-import FSSAIPanel from '@/components/FSSAIPanel';
+import FSSAIPanel, { type FssaiSoiRich } from '@/components/FSSAIPanel';
 import PPMPanel from '@/components/PPMPanel';
 import EditModal from '@/components/EditModal';
 import ThemeToggle from '@/components/ThemeToggle';
-import { KPI, COLOR_HEX } from '@/data/kpis';
+import { KPI } from '@/data/kpis';
 import { CMSite } from '@/data/cmSites';
 import { FSSAISummary } from '@/data/fssaiData';
 import { PPMData, PPMSettings } from '@/data/ppmData';
 
-type Panel = 'dark' | 'light';
 type Theme = 'dark' | 'light';
 type ActivePanel = 'gmp' | 'fssai' | 'ppm' | null;
+
+// Live-from-sheet meta for the panels.
+type SheetMeta = { fetchedAt: string; source: string };
+type MosaicOverall = {
+  siteReadiness: number | null;
+  gmpCompliance: number | null;
+  qmsCompliance: number | null;
+  infraResources: number | null;
+  scorePct: number | null;
+};
 
 export default function Dashboard() {
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [sites, setSites] = useState<CMSite[]>([]);
+  const [mosaicOverall, setMosaicOverall] = useState<MosaicOverall | null>(null);
+  const [cmMeta, setCmMeta] = useState<SheetMeta | null>(null);
+
   const [fssai, setFssai] = useState<FSSAISummary | null>(null);
+  const [fssaiSoi, setFssaiSoi] = useState<FssaiSoiRich[]>([]);
+  const [fssaiTotals, setFssaiTotals] = useState<FssaiSoiRich | null>(null);
+  const [fssaiMeta, setFssaiMeta] = useState<SheetMeta | null>(null);
+
   const [ppmData, setPpmData] = useState<PPMData | null>(null);
   const [ppmSettings, setPpmSettings] = useState<PPMSettings | null>(null);
   const [weightedPPM, setWeightedPPM] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [editModal, setEditModal] = useState<{ kpi: KPI } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,7 +53,6 @@ export default function Dashboard() {
     localStorage.setItem('qd-theme', theme);
   }, [theme]);
 
-  // Restore on load
   useEffect(() => {
     const saved = localStorage.getItem('qd-theme') as Theme | null;
     if (saved === 'light' || saved === 'dark') setTheme(saved);
@@ -45,18 +61,12 @@ export default function Dashboard() {
   const isDark = theme === 'dark';
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
-  // Theme-aware style helpers
   const t = {
-    bg: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
     border: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)',
-    borderHover: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.16)',
     textPrimary: isDark ? '#E8EAF0' : '#0F1117',
     textSecondary: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
     textMuted: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)',
     textFaint: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.2)',
-    cardBg: isDark ? 'linear-gradient(135deg, #1A1F2E 0%, #141720 100%)' : 'linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%)',
-    panelBg: isDark ? 'linear-gradient(135deg, #1A1F2E, #141720)' : 'linear-gradient(135deg, #FFFFFF, #F8F9FC)',
-    shimmerRow: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
     divider: isDark
       ? 'linear-gradient(90deg, rgba(0,217,126,0.15), rgba(255,255,255,0.05) 40%, transparent)'
       : 'linear-gradient(90deg, rgba(0,217,126,0.3), rgba(0,0,0,0.06) 40%, transparent)',
@@ -64,30 +74,54 @@ export default function Dashboard() {
   };
 
   const fetchAll = useCallback(async () => {
-    const [kpiRes, siteRes, fssaiRes, ppmRes] = await Promise.all([
-      fetch('/api/kpis').then(r => r.json()),
-      fetch('/api/cm-sites').then(r => r.json()),
-      fetch('/api/fssai').then(r => r.json()),
-      fetch('/api/ppm').then(r => r.json()),
-    ]);
+    try {
+      const [kpiRes, siteRes, fssaiRes, ppmRes] = await Promise.all([
+        fetch('/api/kpis').then(r => r.json()),
+        fetch('/api/cm-sites').then(r => r.json()),
+        fetch('/api/fssai').then(r => r.json()),
+        fetch('/api/ppm').then(r => r.json()),
+      ]);
 
-    // Set all KPIs from the KPI store — this is the single source of truth for displayed values
-    // Then patch the PPM card with the live computed value from the PPM API
-    const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
-      k.id === 'complaints_ppm'
-        ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
-        : k
-    );
-    setKpis(kpisWithPPM);
-    setSites(siteRes.sites);
-    setFssai(fssaiRes.summary);
-    setPpmData(ppmRes.data);
-    setPpmSettings(ppmRes.settings);
-    setWeightedPPM(ppmRes.weightedPPM);
-    setLoading(false);
+      // If either sheet-backed route errored, surface the message but keep
+      // rendering whatever did succeed.
+      const errors: string[] = [];
+      if (siteRes.error) errors.push(`CM Sites: ${siteRes.error}`);
+      if (fssaiRes.error) errors.push(`FSSAI: ${fssaiRes.error}`);
+      setLoadError(errors.length ? errors.join(' · ') : null);
+
+      const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
+        k.id === 'complaints_ppm'
+          ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
+          : k
+      );
+      setKpis(kpisWithPPM);
+
+      if (Array.isArray(siteRes.sites)) setSites(siteRes.sites);
+      if (siteRes.mosaicOverall) setMosaicOverall(siteRes.mosaicOverall);
+      if (siteRes.meta) setCmMeta(siteRes.meta);
+
+      if (fssaiRes.summary) setFssai(fssaiRes.summary);
+      if (Array.isArray(fssaiRes.bySoi)) setFssaiSoi(fssaiRes.bySoi);
+      if (fssaiRes.totals !== undefined) setFssaiTotals(fssaiRes.totals);
+      if (fssaiRes.meta) setFssaiMeta(fssaiRes.meta);
+
+      setPpmData(ppmRes.data);
+      setPpmSettings(ppmRes.settings);
+      setWeightedPPM(ppmRes.weightedPPM);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Auto-refresh every 60s so the dashboard reflects sheet edits without a manual reload.
+  useEffect(() => {
+    const id = setInterval(fetchAll, 60_000);
+    return () => clearInterval(id);
+  }, [fetchAll]);
 
   const getLegalSubMetrics = (fssaiData: FSSAISummary | null) => {
     if (!fssaiData) return [];
@@ -127,43 +161,8 @@ export default function Dashboard() {
     setLastSaved(new Date().toLocaleTimeString());
   };
 
-  const handleSiteUpdate = async (name: string, field: keyof CMSite, value: number | null) => {
-    setSaving(true);
-    const res = await fetch('/api/cm-sites', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, [field]: value }),
-    });
-    const data = await res.json();
-    setSites(prev => prev.map(s => s.name === name ? data.site : s));
-    if (data.overallGMPPct !== undefined) {
-      setKpis(prev => prev.map(k =>
-        k.id === 'gmp_compliance'
-          ? { ...k, value: Math.round(data.overallGMPPct * 100) / 100, status: data.status, color: data.color }
-          : k
-      ));
-    }
-    setSaving(false);
-    setLastSaved(new Date().toLocaleTimeString());
-  };
-
-  const handleFSSAIUpdate = async (updates: Partial<FSSAISummary>) => {
-    // FSSAI panel updates only update the breakdown data (relabellers, products etc.)
-    // They do NOT auto-overwrite the Legal & Regulatory KPI value.
-    // The Legal KPI value is independently set via the Edit button on the card.
-    setSaving(true);
-    const res = await fetch('/api/fssai', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    const data = await res.json();
-    setFssai(data.summary);
-    // Sub-metrics (78.6% / 29.1%) will auto-update via getLegalSubMetrics(fssai)
-    // Legal KPI headline value is NOT touched here
-    setSaving(false);
-    setLastSaved(new Date().toLocaleTimeString());
-  };
+  // NOTE: handleSiteUpdate and handleFSSAIUpdate were removed — those panels
+  // are now read-only since the Google Sheet is the source of truth.
 
   const handlePPMSettingsUpdate = async (updates: Partial<PPMSettings>) => {
     setSaving(true);
@@ -209,7 +208,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen grid-bg" style={{ fontFamily: 'var(--font-body)', background: 'var(--surface)' }}>
-      {/* Ambient blobs — subtler in light mode */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full"
           style={{ background: 'radial-gradient(circle, #00D97E, transparent 70%)', opacity: isDark ? 0.04 : 0.06 }} />
@@ -221,7 +219,6 @@ export default function Dashboard() {
 
       <div className="relative z-10 max-w-[1200px] mx-auto px-6 py-10">
 
-        {/* ── HEADER ── */}
         <header className="fade-up mb-10">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
@@ -247,7 +244,6 @@ export default function Dashboard() {
               {saving && <span className="text-xs font-mono animate-pulse" style={{ color: t.textMuted }}>Saving…</span>}
               {lastSaved && !saving && <span className="text-xs font-mono" style={{ color: t.textFaint }}>Saved {lastSaved}</span>}
 
-              {/* Theme toggle */}
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
 
               <div className="text-right">
@@ -259,7 +255,18 @@ export default function Dashboard() {
           <div className="mt-6 h-px w-full" style={{ background: t.divider }} />
         </header>
 
-        {/* ── KPI GRID ── */}
+        {/* Sheet load error banner — non-blocking */}
+        {loadError && (
+          <div className="mb-6 px-4 py-3 rounded-lg text-xs font-mono fade-up"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              color: '#F87171',
+            }}>
+            <strong>Couldn’t load sheet data:</strong> {loadError}
+          </div>
+        )}
+
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-mono tracking-[0.18em] uppercase" style={{ color: t.textMuted }}>KPI Summary</h2>
@@ -293,7 +300,6 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* ── DRILL-DOWN PANELS ── */}
         {activePanel && (
           <section className="mb-10 fade-up">
             <div className="flex items-center justify-between mb-4">
@@ -303,9 +309,9 @@ export default function Dashboard() {
                 </h2>
                 <p className="text-xs mt-0.5 font-mono" style={{ color: t.textFaint }}>
                   {activePanel === 'gmp'
-                    ? 'Source: CM_Site_Scorecard.xlsx → Master'
+                    ? 'Source: CM Site Scorecard sheet · Summary tab (live)'
                     : activePanel === 'fssai'
-                    ? 'Source: FSSAI_3PL_Manufacture.xlsx → Summary'
+                    ? 'Source: FSSAI 3PL Manufacture sheet · Summary tab (live)'
                     : 'Source: Nutrimix_PPM_Analysis_Jul_to_Mar.xlsx'}
                 </p>
               </div>
@@ -319,10 +325,21 @@ export default function Dashboard() {
             </div>
 
             {activePanel === 'gmp' && sites.length > 0 && (
-              <CMSiteTable sites={sites} onUpdate={handleSiteUpdate} isDark={isDark} />
+              <CMSiteTable
+                sites={sites}
+                isDark={isDark}
+                mosaicOverall={mosaicOverall ?? undefined}
+                fetchedAt={cmMeta?.fetchedAt}
+              />
             )}
             {activePanel === 'fssai' && fssai && (
-              <FSSAIPanel data={fssai} onUpdate={handleFSSAIUpdate} isDark={isDark} />
+              <FSSAIPanel
+                data={fssai}
+                isDark={isDark}
+                bySoi={fssaiSoi}
+                totals={fssaiTotals}
+                fetchedAt={fssaiMeta?.fetchedAt}
+              />
             )}
             {activePanel === 'ppm' && ppmData && ppmSettings && (
               <PPMPanel
@@ -337,11 +354,10 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* ── FOOTER ── */}
         <footer className="mt-16 pt-6 flex items-center justify-between text-xs font-mono"
           style={{ borderTop: `1px solid ${t.border}`, color: t.textFaint }}>
           <span>NPD &amp; Innovation · Mosaic Wellness</span>
-          <span>FY 2024–25 · Quality Metrics v1.2</span>
+          <span>FY 2024–25 · Quality Metrics v1.3</span>
         </footer>
       </div>
 

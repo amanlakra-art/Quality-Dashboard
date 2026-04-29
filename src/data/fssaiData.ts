@@ -1,5 +1,7 @@
 // ============================================================
-//  fssaiData.ts — From FSSAI_3PL_Manufacture.xlsx -> Summary tab
+//  fssaiData.ts — Types only.
+//  Data now lives in the FSSAI 3PL Manufacture Google Sheet and is fetched
+//  via /api/fssai. Stale hardcoded summary removed.
 // ============================================================
 
 export interface SOIRow {
@@ -12,27 +14,10 @@ export interface SOIRow {
 export interface FSSAISummary {
   totalMfgSites: number;
   relabellerInCurrentLic: number;
-  relabellerLicCompliance: number;  // 0.785714
+  relabellerLicCompliance: number;  // 0..1 fraction (kept for backward compat)
   totalProducts: number;
   totalProductInCurrentLic: number;
   pending: number;
-  productCompliance: number;        // 0.290909
+  productCompliance: number;        // 0..1 fraction
   soiBreakdown: SOIRow[];
 }
-
-export const FSSAI_SUMMARY: FSSAISummary = {
-  totalMfgSites: 14,
-  relabellerInCurrentLic: 11,
-  relabellerLicCompliance: 0.785714,
-  totalProducts: 110,
-  totalProductInCurrentLic: 32,
-  pending: 78,
-  productCompliance: 0.290909,
-  soiBreakdown: [
-    { category: 'Gummies',           total: 33, awaitedForReview: 20, received: 13 },
-    { category: 'Nutrimix (Sapian)', total: 65, awaitedForReview: 43, received: 22 },
-    { category: 'Nutricore',         total: 8,  awaitedForReview: 8,  received: 0  },
-    { category: 'H&H',               total: 3,  awaitedForReview: 3,  received: 0  },
-    { category: 'Gangawal',          total: 1,  awaitedForReview: 1,  received: 1  },
-  ],
-};

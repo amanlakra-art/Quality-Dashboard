@@ -68,12 +68,16 @@ export async function GET() {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json(
-      {
-        error: message,
-        hint: 'Check SHEETS_API_URL / SHEETS_API_TOKEN env vars and that the Apps Script is deployed.',
-      },
-      { status: 500 }
-    );
+    // Return safe zero-state so the page doesn't crash when sheet isn't configured
+    const emptySummary: FSSAISummary = {
+      totalMfgSites: 0, relabellerInCurrentLic: 0, relabellerLicCompliance: 0,
+      totalProducts: 0, totalProductInCurrentLic: 0, pending: 0,
+      productCompliance: 0, soiBreakdown: [],
+    };
+    return NextResponse.json({
+      summary: emptySummary, bySoi: [], totals: null,
+      meta: { fetchedAt: new Date().toISOString(), source: 'fallback' },
+      error: message,
+    });
   }
 }

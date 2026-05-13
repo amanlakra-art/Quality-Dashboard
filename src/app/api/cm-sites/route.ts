@@ -12,7 +12,8 @@ export async function GET() {
     const data = await sheetGet<CmSitesResponse>('cm-sites');
     return NextResponse.json(data);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+    // Return safe empty state so the page doesn't crash when sheet isn't configured
+    return NextResponse.json({ sites: [], overallGMPPct: 0, error: (e as Error).message });
   }
 }
 

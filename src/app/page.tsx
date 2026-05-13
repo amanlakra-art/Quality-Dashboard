@@ -79,29 +79,44 @@ export default function Dashboard() {
   };
 
   const fetchAll = useCallback(async () => {
-    const [kpiRes, siteRes, fssaiRes, ppmRes, hlRes] = await Promise.all([
-      fetch('/api/kpis').then(r => r.json()),
-      fetch('/api/cm-sites').then(r => r.json()),
-      fetch('/api/fssai').then(r => r.json()),
-      fetch('/api/ppm').then(r => r.json()),
-      fetch('/api/highlights').then(r => r.json()),
-    ]);
+    try {
+      const [kpiRes, siteRes, fssaiRes, ppmRes, hlRes] = await Promise.all([
+        fetch('/api/kpis').then(r => r.json()),
+        fetch('/api/cm-sites').then(r => r.json()),
+        fetch('/api/fssai').then(r => r.json()),
+        fetch('/api/ppm').then(r => r.json()),
+        fetch('/api/highlights').then(r => r.json()),
+      ]);
 
-    // Set all KPIs from the KPI store — this is the single source of truth for displayed values
-    // Then patch the PPM card with the live computed value from the PPM API
-    const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
-      k.id === 'complaints_ppm'
-        ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
-        : k
-    );
-    setKpis(kpisWithPPM);
-    setSites(siteRes.sites);
-    setFssai(fssaiRes.summary);
-    setPpmData(ppmRes.data);
-    setPpmSettings(ppmRes.settings);
-    setWeightedPPM(ppmRes.weightedPPM);
-    if (hlRes.highlights) setHighlights(hlRes.highlights);
-    setLoading(false);
+      const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
+        k.id === 'complaints_ppm'
+          ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
+          : k
+      );
+      setKpis(kpisWithPPM);
+
+      setSites(siteRes.sites ?? []);
+      setMosaicOverall(siteRes.mosaicOverall ?? null);
+      setCmMeta(siteRes.meta ?? null);
+
+      setFssai(fssaiRes.summary ?? null);
+      setFssaiSoi(fssaiRes.bySoi ?? []);
+      setFssaiTotals(fssaiRes.totals ?? null);
+      setFssaiMeta(fssaiRes.meta ?? null);
+
+      setPpmData(ppmRes.data);
+      setPpmSettings(ppmRes.settings);
+      setWeightedPPM(ppmRes.weightedPPM);
+
+      if (hlRes.highlights) setHighlights(hlRes.highlights);
+
+      const apiError = siteRes.error || fssaiRes.error;
+      setLoadError(apiError ? `Sheet data unavailable: ${apiError}` : null);
+    } catch (err) {
+      setLoadError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

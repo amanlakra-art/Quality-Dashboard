@@ -7,10 +7,12 @@ import FSSAIPanel from '@/components/FSSAIPanel';
 import PPMPanel from '@/components/PPMPanel';
 import EditModal from '@/components/EditModal';
 import ThemeToggle from '@/components/ThemeToggle';
+import HighlightsSection from '@/components/HighlightsSection';
 import { KPI, COLOR_HEX } from '@/data/kpis';
 import { CMSite } from '@/data/cmSites';
 import { FSSAISummary } from '@/data/fssaiData';
 import { PPMData, PPMSettings } from '@/data/ppmData';
+import type { Highlight } from '@/data/highlights';
 
 type Panel = 'dark' | 'light';
 type Theme = 'dark' | 'light';
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>('dark');
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
 
   // Apply + persist theme
   useEffect(() => {
@@ -64,11 +67,12 @@ export default function Dashboard() {
   };
 
   const fetchAll = useCallback(async () => {
-    const [kpiRes, siteRes, fssaiRes, ppmRes] = await Promise.all([
+    const [kpiRes, siteRes, fssaiRes, ppmRes, hlRes] = await Promise.all([
       fetch('/api/kpis').then(r => r.json()),
       fetch('/api/cm-sites').then(r => r.json()),
       fetch('/api/fssai').then(r => r.json()),
       fetch('/api/ppm').then(r => r.json()),
+      fetch('/api/highlights').then(r => r.json()),
     ]);
 
     // Set all KPIs from the KPI store — this is the single source of truth for displayed values
@@ -84,6 +88,7 @@ export default function Dashboard() {
     setPpmData(ppmRes.data);
     setPpmSettings(ppmRes.settings);
     setWeightedPPM(ppmRes.weightedPPM);
+    if (hlRes.highlights) setHighlights(hlRes.highlights);
     setLoading(false);
   }, []);
 
@@ -205,6 +210,26 @@ export default function Dashboard() {
     return null;
   };
 
+  const addHighlight = async (text: string) => {
+    const res = await fetch('/api/highlights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    if (data.highlights) setHighlights(data.highlights);
+  };
+
+  const deleteHighlight = async (id: string) => {
+    const res = await fetch('/api/highlights', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (data.highlights) setHighlights(data.highlights);
+  };
+
   const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
@@ -292,6 +317,15 @@ export default function Dashboard() {
             </div>
           )}
         </section>
+
+        {/* ── HIGHLIGHTS ── */}
+        <HighlightsSection
+          highlights={highlights}
+          onAdd={addHighlight}
+          onDelete={deleteHighlight}
+          isDark={isDark}
+          t={t}
+        />
 
         {/* ── DRILL-DOWN PANELS ── */}
         {activePanel && (

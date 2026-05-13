@@ -7,14 +7,29 @@
 // the actual sheet (which the hardcoded data didn't have).
 
 import { NextResponse } from 'next/server';
-import { getFssai } from '@/lib/sheets';
+import { sheetGet } from '@/lib/sheets';
 import type { FSSAISummary, SOIRow } from '@/data/fssaiData';
+
+type FssaiSheetPayload = {
+  summary: {
+    totalMfgSite: number | null;
+    relablerInCurrentLicence: number | null;
+    relablerCompliancePct: number | null;
+    totalProduct: number | null;
+    totalProductInCurrentLicence: number | null;
+    pending: number | null;
+    productCompliancePct: number | null;
+  };
+  bySoi: { soi: string; totalProducts: number | null; awaitedReview: number | null; received: number | null; licencePending: number | null; pendingPct: number | null; }[];
+  totals: { soi: string; totalProducts: number | null; awaitedReview: number | null; received: number | null; licencePending: number | null; pendingPct: number | null; } | null;
+  fetchedAt: string;
+};
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const payload = await getFssai();
+    const payload = await sheetGet<FssaiSheetPayload>('fssai');
     const s = payload.summary;
 
     // ---- Legacy shape mapping ----

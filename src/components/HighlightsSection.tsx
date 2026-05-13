@@ -5,14 +5,11 @@ import type { Highlight } from '@/data/highlights';
 import { getWeekStart, formatWeekRange } from '@/data/highlights';
 
 interface StyleTokens {
-  cardBg: string;
   border: string;
-  borderHover: string;
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
   textFaint: string;
-  bg: string;
 }
 
 interface Props {
@@ -119,7 +116,9 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, isDark,
       <div
         className="rounded-2xl p-6"
         style={{
-          background: t.cardBg,
+          background: isDark
+            ? 'linear-gradient(135deg, #1A1F2E 0%, #141720 100%)'
+            : 'linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%)',
           border: `1px solid ${t.border}`,
           boxShadow: isDark
             ? '0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.2)'

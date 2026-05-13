@@ -1,33 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { sheetGet, sheetPatch } from '@/lib/sheets';
+import { NextResponse } from 'next/server';
+import { sheetGet } from '@/lib/sheets';
 import type { CMSite } from '@/data/cmSites';
 import { deriveGMPStatus } from '@/data/kpis';
 
 export const dynamic = 'force-dynamic';
 
-type CmSitesResponse = { sites: CMSite[]; overallGMPPct: number };
+// Shape returned by the deployed Apps Script (standalone multi-sheet version)
+type DeployedRow = {
+  site: string;
+  siteReadiness: number | null;
+  gmpCompliance: number | null;
+  qmsCompliance: number | null;
+  infraResources: number | null;
+  avg: number | null;
+  scorePct: number | null;
+};
+type DeployedMosaicOverall = {
+  siteReadiness: number | null;
+  gmpCompliance: number | null;
+  qmsCompliance: number | null;
+  infraResources: number | null;
+  scorePct: number | null;
+};
+type DeployedCmSites = {
+  rows: DeployedRow[];
+  mosaicOverall: DeployedMosaicOverall;
+  columnAverages: DeployedMosaicOverall & { avg: number | null };
+  fetchedAt: string;
+};
+
+function mapToSite(r: DeployedRow): CMSite {
+  return {
+    name: r.site,
+    siteReadiness: r.siteReadiness,
+    gmpCompliance: r.gmpCompliance,
+    qmsCompliance: r.qmsCompliance,
+    infrastructure: r.infraResources,
+    avg: r.avg,
+    pct: r.scorePct,
+  };
+}
 
 export async function GET() {
   try {
-    const data = await sheetGet<CmSitesResponse>('cm-sites');
-    return NextResponse.json(data);
-  } catch (e) {
-    // Return safe empty state so the page doesn't crash when sheet isn't configured
-    return NextResponse.json({ sites: [], overallGMPPct: 0, error: (e as Error).message });
-  }
-}
+    const raw = await sheetGet<DeployedCmSites>('cm-sites');
+    const sites: CMSite[] = (raw.rows ?? []).map(mapToSite);
 
-export async function PATCH(req: NextRequest) {
-  try {
-    const body = (await req.json()) as Partial<CMSite> & { name: string };
-    const data = await sheetPatch<CmSitesResponse>('cm-sites', body);
-    const site = data.sites.find(s => s.name === body.name);
+    // overallGMPPct: use mosaicOverall.scorePct if present (= (avgScore/5)*100)
+    // otherwise fall back to computing from individual site gmpCompliance values
+    let overallGMPPct = raw.mosaicOverall?.scorePct ?? null;
+    if (overallGMPPct === null) {
+      const valid = sites.filter(s => s.gmpCompliance !== null);
+      overallGMPPct = valid.length
+        ? (valid.reduce((a, s) => a + (s.gmpCompliance ?? 0), 0) / valid.length / 5) * 100
+        : 0;
+    }
+
     return NextResponse.json({
-      site,
-      overallGMPPct: data.overallGMPPct,
-      ...deriveGMPStatus(data.overallGMPPct),
+      sites,
+      overallGMPPct,
+      mosaicOverall: raw.mosaicOverall ?? null,
+      meta: { fetchedAt: raw.fetchedAt, source: 'google-sheets' },
     });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+    return NextResponse.json({
+      sites: [], overallGMPPct: 0, mosaicOverall: null, meta: null,
+      error: (e as Error).message,
+    });
   }
 }

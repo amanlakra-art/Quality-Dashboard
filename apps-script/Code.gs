@@ -18,9 +18,10 @@ const CM_LAST_ROW = 13; // last data row ("Percos") — adjust if you add sites
 
 function doGet(e) {
   return _handle(e, function (params) {
-    if (params.entity === 'cm-sites') return _getCmSites();
-    if (params.entity === 'highlights') return _getHighlights();
-    throw new Error('Unknown entity: ' + params.entity);
+    if (params.dataset === 'cm-sites') return _getCmSites();
+    if (params.dataset === 'highlights') return _getHighlights();
+    // 'fssai' is handled by a separate deployed version — add _getFssai() when updating
+    throw new Error('Unknown dataset. Use ?dataset=cm-sites or ?dataset=fssai or ?dataset=highlights');
   });
 }
 
@@ -28,9 +29,9 @@ function doPost(e) {
   return _handle(e, function (params) {
     const body = JSON.parse(e.postData.contents);
     if (body.token !== TOKEN) throw new Error('unauthorized');
-    if (body.entity === 'cm-sites') return _patchCmSite(body.payload);
-    if (body.entity === 'highlights') return _patchHighlights(body.payload);
-    throw new Error('Unknown entity: ' + body.entity);
+    if (body.dataset === 'cm-sites') return _patchCmSite(body.payload);
+    if (body.dataset === 'highlights') return _patchHighlights(body.payload);
+    throw new Error('Unknown dataset: ' + body.dataset);
   });
 }
 

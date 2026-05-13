@@ -54,23 +54,25 @@ export default function KPICard({ kpi, index, isDark, hideEdit, legalMode, onEdi
     });
   };
 
-  // Theme tokens
+  // Theme tokens. Light-mode opacities increased — the previous values (0.38,
+  // 0.28, 0.30, 0.20) were too low against the near-white card surface,
+  // making the subtext/labels/source line nearly invisible.
   const cardBg       = isDark ? 'linear-gradient(135deg, #1A1F2E 0%, #141720 100%)' : 'linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%)';
-  const borderBase   = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+  const borderBase   = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.10)';
   const shadowBase   = isDark ? '0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25)' : '0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)';
   const shadowHover  = isDark ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${color}14` : `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${color}28`;
-  const labelColor   = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)';
-  const subtextColor = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.38)';
-  const trackBg      = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const targetLineBg = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+  const labelColor   = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.55)';
+  const subtextColor = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.55)';
+  const trackBg      = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+  const targetLineBg = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.35)';
   const dotBg        = isDark ? '#141720' : '#FFFFFF';
-  const footerBorder = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-  const srcColor     = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.28)';
+  const footerBorder = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+  const srcColor     = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.45)';
   const editBtnStyle = isDark
     ? { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.40)' }
-    : { background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.10)', color: 'rgba(0,0,0,0.45)' };
-  const chipBorder   = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  const noteTxt      = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.30)';
+    : { background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.12)', color: 'rgba(0,0,0,0.65)' };
+  const chipBorder   = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.10)';
+  const noteTxt      = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.55)';
 
   return (
     <div

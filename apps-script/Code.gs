@@ -248,7 +248,7 @@ function getHighlights_() {
   const highlights = rows
     .filter(function(r) { return r[0]; })
     .map(function(r) {
-      return { id: String(r[0]), text: String(r[1]), weekStart: String(r[2]), createdAt: String(r[3]) };
+      return { id: String(r[0]), text: String(r[1]), weekStart: _dateStr(r[2]), createdAt: _dateStr(r[3]) };
     });
   return { highlights: highlights };
 }
@@ -275,6 +275,12 @@ function patchHighlights_(payload) {
 function _json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Sheets auto-converts ISO date strings to Date objects; format them back to YYYY-MM-DD
+function _dateStr(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'UTC', 'yyyy-MM-dd');
+  return String(v);
 }
 
 function _num(raw) {

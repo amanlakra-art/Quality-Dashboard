@@ -13,8 +13,12 @@ let highlightsStore: Highlight[] = [];
 
 async function getAll(): Promise<Highlight[]> {
   if (sheetsConfigured) {
-    const data = await sheetGet<HighlightsResponse>('highlights');
-    return data.highlights;
+    try {
+      const data = await sheetGet<HighlightsResponse>('highlights');
+      return data.highlights;
+    } catch {
+      // Sheet doesn't support highlights entity yet — fall through to in-memory
+    }
   }
   return highlightsStore;
 }
@@ -41,8 +45,12 @@ export async function POST(req: NextRequest) {
     };
 
     if (sheetsConfigured) {
-      const data = await sheetPatch<HighlightsResponse>('highlights', { op: 'add', highlight });
-      return NextResponse.json({ highlights: data.highlights });
+      try {
+        const data = await sheetPatch<HighlightsResponse>('highlights', { op: 'add', highlight });
+        return NextResponse.json({ highlights: data.highlights });
+      } catch {
+        // Sheet doesn't support highlights entity yet — fall through to in-memory
+      }
     }
 
     highlightsStore = [...highlightsStore, highlight];
@@ -58,8 +66,12 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
     if (sheetsConfigured) {
-      const data = await sheetPatch<HighlightsResponse>('highlights', { op: 'delete', id });
-      return NextResponse.json({ highlights: data.highlights });
+      try {
+        const data = await sheetPatch<HighlightsResponse>('highlights', { op: 'delete', id });
+        return NextResponse.json({ highlights: data.highlights });
+      } catch {
+        // Sheet doesn't support highlights entity yet — fall through to in-memory
+      }
     }
 
     highlightsStore = highlightsStore.filter(h => h.id !== id);

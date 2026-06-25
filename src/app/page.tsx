@@ -8,7 +8,7 @@ import PPMPanel from '@/components/PPMPanel';
 import EditModal from '@/components/EditModal';
 import ThemeToggle from '@/components/ThemeToggle';
 import HighlightsSection from '@/components/HighlightsSection';
-import { KPI, COLOR_HEX } from '@/data/kpis';
+import { KPI, COLOR_HEX, deriveGMPStatus } from '@/data/kpis';
 import { CMSite } from '@/data/cmSites';
 import { FSSAISummary } from '@/data/fssaiData';
 import { PPMData, PPMSettings } from '@/data/ppmData';
@@ -88,12 +88,22 @@ export default function Dashboard() {
         fetch('/api/highlights').then(r => r.json()),
       ]);
 
-      const kpisWithPPM = (kpiRes.kpis as KPI[]).map(k =>
-        k.id === 'complaints_ppm'
-          ? { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color }
-          : k
-      );
-      setKpis(kpisWithPPM);
+      // GMP card is driven live from the CM Site Scorecard "Mosaic Overall"
+      // score (same 66.3% the table below shows). PPM is driven from the PPM
+      // analysis. Both are read-only on the card — the sheet is the source of truth.
+      const liveGMP = siteRes.mosaicOverall?.scorePct ?? siteRes.overallGMPPct;
+      const kpisWithLive = (kpiRes.kpis as KPI[]).map(k => {
+        if (k.id === 'complaints_ppm') {
+          return { ...k, value: ppmRes.weightedPPM, status: ppmRes.status, color: ppmRes.color };
+        }
+        if (k.id === 'gmp_compliance' && typeof liveGMP === 'number' && !Number.isNaN(liveGMP)) {
+          const rounded = Math.round(liveGMP * 10) / 10;
+          const d = deriveGMPStatus(rounded);
+          return { ...k, value: rounded, status: d.status, color: d.color };
+        }
+        return k;
+      });
+      setKpis(kpisWithLive);
 
       setSites(siteRes.sites ?? []);
       setMosaicOverall(siteRes.mosaicOverall ?? null);
@@ -228,6 +238,16 @@ export default function Dashboard() {
     if (data.highlights) setHighlights(data.highlights);
   };
 
+  const editHighlight = async (id: string, text: string) => {
+    const res = await fetch('/api/highlights', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, text }),
+    });
+    const data = await res.json();
+    if (data.highlights) setHighlights(data.highlights);
+  };
+
   const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
@@ -309,7 +329,7 @@ export default function Dashboard() {
                   kpi={kpi}
                   index={i}
                   isDark={isDark}
-                  hideEdit={kpi.id === 'legal_regulatory'}
+                  hideEdit={kpi.id === 'legal_regulatory' || kpi.id === 'gmp_compliance'}
                   legalMode={kpi.id === 'legal_regulatory'}
                   onEdit={() => setEditModal({ kpi })}
                   onDrillDown={() => setActivePanel(prev => prev === panelFor(kpi) ? null : panelFor(kpi))}
@@ -329,6 +349,7 @@ export default function Dashboard() {
           highlights={highlights}
           onAdd={addHighlight}
           onDelete={deleteHighlight}
+          onEdit={editHighlight}
           isDark={isDark}
           t={t}
         />

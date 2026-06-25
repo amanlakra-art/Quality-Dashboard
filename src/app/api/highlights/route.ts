@@ -60,6 +60,28 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, text } = (await req.json()) as { id: string; text: string };
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!text?.trim()) return NextResponse.json({ error: 'text required' }, { status: 400 });
+
+    if (sheetsConfigured) {
+      try {
+        const data = await sheetPatch<HighlightsResponse>('highlights', { op: 'edit', id, text: text.trim() });
+        return NextResponse.json({ highlights: data.highlights });
+      } catch {
+        // Sheet doesn't support highlights entity yet — fall through to in-memory
+      }
+    }
+
+    highlightsStore = highlightsStore.map(h => h.id === id ? { ...h, text: text.trim() } : h);
+    return NextResponse.json({ highlights: highlightsStore });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = (await req.json()) as { id: string };

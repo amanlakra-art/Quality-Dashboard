@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import type { Highlight } from '@/data/highlights';
 import { getWeekStart, formatWeekRange } from '@/data/highlights';
 
@@ -16,15 +16,26 @@ interface Props {
   highlights: Highlight[];
   onAdd: (text: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit: (id: string, text: string) => Promise<void>;
   isDark: boolean;
   t: StyleTokens;
 }
 
-export default function HighlightsSection({ highlights, onAdd, onDelete, isDark, t }: Props) {
+// Grow a textarea to fit its content (Shift+Enter adds lines without a scrollbar).
+function autoResize(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+export default function HighlightsSection({ highlights, onAdd, onDelete, onEdit, isDark, t }: Props) {
   const [tab, setTab] = useState<'current' | 'historical'>('current');
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const thisWeek = getWeekStart();
 
@@ -45,11 +56,47 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, isDark,
     setInput('');
     await onAdd(text);
     setSubmitting(false);
-    inputRef.current?.focus();
+    if (inputRef.current) {
+      autoResize(inputRef.current);
+      inputRef.current.focus();
+    }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') handleAdd();
+  // Enter submits; Shift+Enter inserts a newline.
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAdd();
+    }
+  }
+
+  function startEdit(h: Highlight) {
+    setEditingId(h.id);
+    setEditText(h.text);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText('');
+  }
+
+  async function saveEdit(id: string) {
+    const text = editText.trim();
+    if (!text || savingEdit) return;
+    setSavingEdit(true);
+    await onEdit(id, text);
+    setSavingEdit(false);
+    cancelEdit();
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveEdit(id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
   }
 
   const tabBase: React.CSSProperties = {
@@ -74,6 +121,16 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, isDark,
     ...tabBase,
     background: 'transparent',
     color: t.textMuted,
+  };
+
+  const accent = isDark ? '#00D97E' : '#008C52';
+
+  const editBoxStyle: React.CSSProperties = {
+    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    border: `1px solid ${t.border}`,
+    color: t.textPrimary,
+    resize: 'none',
+    overflow: 'hidden',
   };
 
   return (
@@ -148,55 +205,107 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, isDark,
                 >
                   <span
                     className="mt-[3px] shrink-0 text-[10px]"
-                    style={{ color: isDark ? '#00D97E' : '#008C52' }}
+                    style={{ color: accent }}
                   >
                     ●
                   </span>
-                  <span
-                    className="flex-1 text-sm leading-relaxed"
-                    style={{ color: t.textPrimary }}
-                  >
-                    {h.text}
-                  </span>
-                  <button
-                    onClick={() => onDelete(h.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
-                    style={{ color: t.textMuted }}
-                    title="Remove"
-                  >
-                    ✕
-                  </button>
+
+                  {editingId === h.id ? (
+                    <div className="flex-1">
+                      <textarea
+                        autoFocus
+                        rows={1}
+                        value={editText}
+                        onChange={e => { setEditText(e.target.value); autoResize(e.target); }}
+                        onKeyDown={e => handleEditKeyDown(e, h.id)}
+                        ref={el => autoResize(el)}
+                        disabled={savingEdit}
+                        className="w-full bg-transparent outline-none text-sm leading-relaxed rounded-lg px-3 py-2"
+                        style={editBoxStyle}
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => saveEdit(h.id)}
+                          disabled={savingEdit}
+                          className="text-xs font-mono px-3 py-1 rounded-lg transition-all"
+                          style={{
+                            background: isDark ? 'rgba(0,217,126,0.12)' : 'rgba(0,160,100,0.1)',
+                            color: accent,
+                            border: `1px solid ${isDark ? 'rgba(0,217,126,0.3)' : 'rgba(0,160,100,0.25)'}`,
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={savingEdit}
+                          className="text-xs font-mono px-3 py-1 rounded-lg transition-all"
+                          style={{ color: t.textMuted, border: `1px solid ${t.border}` }}
+                        >
+                          Cancel
+                        </button>
+                        <span className="text-[10px] font-mono" style={{ color: t.textFaint }}>
+                          Enter to save · Shift+Enter for new line
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span
+                        className="flex-1 text-sm leading-relaxed whitespace-pre-wrap"
+                        style={{ color: t.textPrimary }}
+                      >
+                        {h.text}
+                      </span>
+                      <button
+                        onClick={() => startEdit(h)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
+                        style={{ color: t.textMuted }}
+                        title="Edit"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => onDelete(h.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
+                        style={{ color: t.textMuted }}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
 
             <div
-              className="flex items-center gap-3 rounded-xl px-4 py-3"
+              className="flex items-start gap-3 rounded-xl px-4 py-3"
               style={{
                 background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
                 border: `1px solid ${t.border}`,
               }}
             >
-              <span style={{ color: isDark ? '#00D97E' : '#008C52', fontSize: 12 }}>+</span>
-              <input
+              <span style={{ color: accent, fontSize: 12, marginTop: 2 }}>+</span>
+              <textarea
                 ref={inputRef}
-                type="text"
-                placeholder="Add a highlight… (press Enter)"
+                rows={1}
+                placeholder="Add a highlight… (Enter to add · Shift+Enter for new line)"
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={e => { setInput(e.target.value); autoResize(e.target); }}
                 onKeyDown={handleKeyDown}
                 disabled={submitting}
-                className="flex-1 bg-transparent outline-none text-sm font-mono placeholder:opacity-40"
+                className="flex-1 bg-transparent outline-none text-sm font-mono placeholder:opacity-40 resize-none overflow-hidden"
                 style={{ color: t.textPrimary }}
               />
               {input.trim() && (
                 <button
                   onClick={handleAdd}
                   disabled={submitting}
-                  className="text-xs font-mono px-3 py-1 rounded-lg transition-all"
+                  className="text-xs font-mono px-3 py-1 rounded-lg transition-all shrink-0"
                   style={{
                     background: isDark ? 'rgba(0,217,126,0.12)' : 'rgba(0,160,100,0.1)',
-                    color: isDark ? '#00D97E' : '#008C52',
+                    color: accent,
                     border: `1px solid ${isDark ? 'rgba(0,217,126,0.3)' : 'rgba(0,160,100,0.25)'}`,
                   }}
                 >
@@ -236,7 +345,7 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, isDark,
                             ●
                           </span>
                           <span
-                            className="flex-1 text-sm leading-relaxed"
+                            className="flex-1 text-sm leading-relaxed whitespace-pre-wrap"
                             style={{ color: t.textSecondary }}
                           >
                             {h.text}

@@ -9,7 +9,7 @@
  *   GET ?token=<TOKEN>&dataset=cm-sites   → CM site scorecard JSON
  *   GET ?token=<TOKEN>&dataset=fssai      → FSSAI summary JSON
  *   GET ?token=<TOKEN>&dataset=highlights → Weekly highlights JSON
- *   POST { token, dataset: 'highlights', payload: { op, highlight|id } }
+ *   POST { token, dataset: 'highlights', payload: { op: add|edit|delete, highlight|id|text } }
  *
  * Token: stored in Script Properties (File → Project settings → Script properties)
  *   as API_TOKEN. Set it once with _setupToken() below.
@@ -258,6 +258,14 @@ function patchHighlights_(payload) {
   if (payload.op === 'add') {
     const h = payload.highlight;
     sh.appendRow([h.id, h.text, h.weekStart, h.createdAt]);
+  } else if (payload.op === 'edit') {
+    const last = sh.getLastRow();
+    if (last >= 2) {
+      const ids = sh.getRange(2, 1, last - 1, 1).getValues();
+      for (var j = 0; j < ids.length; j++) {
+        if (String(ids[j][0]) === payload.id) { sh.getRange(j + 2, 2).setValue(payload.text); break; }
+      }
+    }
   } else if (payload.op === 'delete') {
     const last = sh.getLastRow();
     if (last >= 2) {

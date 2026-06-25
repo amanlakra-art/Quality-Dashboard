@@ -12,7 +12,7 @@ import { KPI, COLOR_HEX, deriveGMPStatus } from '@/data/kpis';
 import { CMSite } from '@/data/cmSites';
 import { FSSAISummary } from '@/data/fssaiData';
 import { PPMData, PPMSettings } from '@/data/ppmData';
-import type { Highlight } from '@/data/highlights';
+import { getWeekStart, type Highlight } from '@/data/highlights';
 
 type Theme = 'dark' | 'light';
 type ActivePanel = 'gmp' | 'fssai' | 'ppm' | null;
@@ -218,36 +218,54 @@ export default function Dashboard() {
     return null;
   };
 
-  const addHighlight = async (text: string) => {
-    const res = await fetch('/api/highlights', {
-      method: 'POST',
+  // Highlights use optimistic updates: the UI changes instantly, the sheet
+  // syncs in the background, and we roll back only if the save fails. The
+  // server response (when it arrives) becomes the source of truth.
+  const syncHighlights = (
+    body: object,
+    rollback: () => void,
+    method: 'POST' | 'DELETE' = 'POST',
+  ) => {
+    fetch('/api/highlights', {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-    if (data.highlights) setHighlights(data.highlights);
+      body: JSON.stringify(body),
+    })
+      .then(async res => {
+        const data = await res.json().catch(() => ({} as { highlights?: Highlight[]; error?: string }));
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        if (data.highlights) setHighlights(data.highlights);
+        setLastSaved(new Date().toLocaleTimeString());
+      })
+      .catch(err => {
+        rollback();
+        console.error('Highlight sync failed', err);
+      });
+  };
+
+  const addHighlight = async (text: string) => {
+    const temp: Highlight = {
+      id: `temp-${crypto.randomUUID()}`,
+      text,
+      weekStart: getWeekStart(),
+      createdAt: new Date().toISOString(),
+    };
+    setHighlights(prev => [...prev, temp]);
+    syncHighlights({ text }, () => setHighlights(prev => prev.filter(h => h.id !== temp.id)));
   };
 
   const deleteHighlight = async (id: string) => {
-    const res = await fetch('/api/highlights', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    const data = await res.json();
-    if (data.highlights) setHighlights(data.highlights);
+    const snapshot = highlights;
+    setHighlights(prev => prev.filter(h => h.id !== id));
+    syncHighlights({ id }, () => setHighlights(snapshot), 'DELETE');
   };
 
   const editHighlight = async (id: string, text: string) => {
-    // Edits go through POST (with an id) — the same proven path adds use.
-    const res = await fetch('/api/highlights', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, text }),
-    });
-    const data = await res.json().catch(() => ({} as { highlights?: Highlight[]; error?: string }));
-    if (!res.ok || data.error) throw new Error(data.error || `Save failed (HTTP ${res.status})`);
-    if (data.highlights) setHighlights(data.highlights);
+    const prevText = highlights.find(h => h.id === id)?.text;
+    setHighlights(prev => prev.map(h => h.id === id ? { ...h, text } : h));
+    syncHighlights({ id, text }, () =>
+      setHighlights(prev => prev.map(h => h.id === id && prevText !== undefined ? { ...h, text: prevText } : h)),
+    );
   };
 
   const dateStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });

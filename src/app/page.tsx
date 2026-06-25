@@ -239,12 +239,14 @@ export default function Dashboard() {
   };
 
   const editHighlight = async (id: string, text: string) => {
+    // Edits go through POST (with an id) — the same proven path adds use.
     const res = await fetch('/api/highlights', {
-      method: 'PATCH',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, text }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({} as { highlights?: Highlight[]; error?: string }));
+    if (!res.ok || data.error) throw new Error(data.error || `Save failed (HTTP ${res.status})`);
     if (data.highlights) setHighlights(data.highlights);
   };
 

@@ -84,9 +84,15 @@ export default function HighlightsSection({ highlights, onAdd, onDelete, onEdit,
     const text = editText.trim();
     if (!text || savingEdit) return;
     setSavingEdit(true);
-    await onEdit(id, text);
-    setSavingEdit(false);
-    cancelEdit();
+    try {
+      await onEdit(id, text);
+      cancelEdit();
+    } catch (err) {
+      // Keep the editor open so the edit isn't lost; the user can retry.
+      console.error('Failed to save highlight', err);
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function handleEditKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) {
